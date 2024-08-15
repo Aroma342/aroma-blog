@@ -1,6 +1,6 @@
 aroma-blog/
 ├── index.html           # トップページ
-├── simulator (mechanics).html           # "シミュレーション"ページ
+├── simulator-mechanics.html           # "シミュレーション"ページ
 ├── novelpage.html         # "準備中"ページ
 └── solutions/           # "solutions"というフォルダを作成
     ├── David-J-Griffith.html  # David J. Griffithのページ
