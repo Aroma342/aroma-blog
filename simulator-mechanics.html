@@ -1,0 +1,433 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>a\アロマのきまま物理ブログ</title>
+    <link rel="preload" as="image" href="images/jellyfish.jpg">
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/each.css">
+    <link rel="stylesheet"
+        href="https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            position: relative;
+            width: 400px;
+            height: 400px;
+        }
+
+        .circle {
+            width: 200px; /* 初期半径1m (直径=200px) */
+            height: 200px;
+            border: 2px dashed #000;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .initial-circle {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            border: 2px solid #000;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .dot {
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            border-radius: 50%;
+            position: absolute;
+            top: -10px; /* 円周の上に配置 */
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .center {
+            width: 10px;
+            height: 10px;
+            background-color: blue;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .info {
+            margin-top: 20px;
+            font-size: 18px;
+            text-align: center;
+        }
+
+        input[type="range"] {
+            width: 300px;
+        }
+
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .rotating {
+            animation: rotate 2s linear infinite;
+            transform-origin: 50% calc(50% + 100px); /* 初期半径での回転 */
+        }
+    </style>
+</head>
+
+<body>
+    <header class="header">
+     <!-- ハンバーガーメニュー -->
+     <button id="js-hamburger" class="hamburger"><span class="hamburger__line"></span></button>
+     <!-- メニュー -->
+     <nav id="js-globalnav" class="globalnav">
+      <ul class="globalnav__main">
+       <li class="globalnav__item"><a href="index.html">Top</a></li>
+       <li class="globalnav__item _has-child">
+         <a href="solution-manual.html">Solution Manual</a>
+        <ul class="globalnav__child">
+         <li><a href="David J. Griffiths.html">David J. Griffith</a></li>
+         <li><a href="Jhon R. taylor.html">Jhon R. Taylor</a></li>
+        </ul>
+       </li>
+       <!-- Other items moved out of Solution Manual -->
+       <li class="globalnav__item"><a href="https://github.com/Aroma342/-">solution code(github)</a></li>
+       <li class="globalnav__item"><a href="simulator-mechanics.html">simulator(mechanics)</a></li>
+      </ul>
+     </nav><!-- メニューここまで -->
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="mainwrapper longnovel" id="js-main">
+        <h1 class="longnovel__title titles">力学シミュレーション</h1>
+
+        <!-- 高校物理セクション -->
+        <section class="bg-white">
+            <h2 class="headingS">高校物理</h2>
+            <h3 class="subheading">振り子シミュレーション</h3>
+
+            <!-- 振り子シミュレーションのカンバス -->
+            <canvas id="pendulumCanvas" width="800" height="800"></canvas>
+
+            <div id="controls">
+                <label for="angleInput">初期角度 (度数法, 0-360°): </label>
+                <input type="number" id="angleInput" value="90" step="1" min="0" max="360">
+                <label for="velocityInput">初期速度 (度/s): </label>
+                <input type="number" id="velocityInput" value="0" step="1">
+                <label for="lengthInput">糸の長さ (m): </label>
+                <input type="number" id="lengthInput" value="10" step="0.1" min="0.1">
+                <button onclick="startSimulation()">シミュレーション開始</button>
+                <button onclick="stopSimulation()">シミュレーション停止</button>
+            </div>
+            <div id="description">
+                <p>青は近似解 sinθ=θ、赤は厳密解, おもりは0.1kg(100g)</p>
+            </div>
+            <div id="timer" style="text-align: center; margin-top: 20px;">Time: 0.00 s</div>
+
+            <!-- グラフのカンバス -->
+            <canvas id="plotCanvas" width="600" height="400"></canvas>
+            <script>
+                const canvas = document.getElementById('pendulumCanvas');
+                const ctx = canvas.getContext('2d');
+                const plotCanvas = document.getElementById('plotCanvas');
+                const plotCtx = plotCanvas.getContext('2d');
+        
+                const g = 9.81; // 重力加速度 (m/s^2)
+                const mass = 0.1; // 球の質量 (kg, 100g)
+                const baseLength = 10; // 基準となる長さ（メートル）
+                let R = 300; // 表示用の糸の長さ（ピクセル）を拡大
+                let length = baseLength; // 任意調整された長さ（メートル）
+                let initialPhi = 90; // 初期角度（度数法）
+                let initialPhidot = 0; // 初期速度
+                let thetaExact, thetaApprox;
+                let omegaExact, omegaApprox;
+                const dt = 0.05; // 時間ステップ
+                let time = 0;
+                let animationFrame;
+                let running = false;
+        
+                let timeData = [];
+                let exactData = [];
+                let approxData = [];
+        
+                function exactEquation(t, y) {
+                    const thetaRad = (y[0] * Math.PI) / 180; // 度数法からラジアンに変換
+                    const accelerationRad = (-g / length) * Math.sin(thetaRad);
+                    return [y[1], (accelerationRad * 180) / Math.PI]; // 角度変化を度数法に戻す
+                }
+        
+                function linearApproximation(t, y) {
+                    const thetaRad = (y[0] * Math.PI) / 180; // 度数法からラジアンに変換
+                    const accelerationRad = (-g / length) * thetaRad;
+                    return [y[1], (accelerationRad * 180) / Math.PI]; // 角度変化を度数法に戻す
+                }
+        
+                function rungeKutta(f, y, t, h) {
+                    const k1 = f(t, y).map(v => h * v);
+                    const k2 = f(t + h / 2, y.map((v, i) => v + k1[i] / 2)).map(v => h * v);
+                    const k3 = f(t + h / 2, y.map((v, i) => v + k2[i] / 2)).map(v => h * v);
+                    const k4 = f(t + h, y.map((v, i) => v + k3[i])).map(v => h * v);
+                    return y.map((v, i) => v + (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]) / 6);
+                }
+        
+                function simulate() {
+                    let yExact = [thetaExact, omegaExact];
+                    let yApprox = [thetaApprox, omegaApprox];
+        
+                    yExact = rungeKutta(exactEquation, yExact, time, dt);
+                    yApprox = rungeKutta(linearApproximation, yApprox, time, dt);
+        
+                    thetaExact = yExact[0];
+                    omegaExact = yExact[1];
+        
+                    thetaApprox = yApprox[0];
+                    omegaApprox = yApprox[1];
+        
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+                    // 全円の描画
+                    drawCircles();
+        
+                    // 厳密解（赤色の実線）
+                    drawPendulum(R * Math.sin((thetaExact + 180) * Math.PI / 180), -R * Math.cos((thetaExact + 180) * Math.PI / 180), "red", false);
+        
+                    // 線形近似解（青色の点線）
+                    drawPendulum(R * Math.sin((thetaApprox + 180) * Math.PI / 180), -R * Math.cos((thetaApprox + 180) * Math.PI / 180), "blue", true);
+        
+                    // 時間と変異のデータを記録
+                    timeData.push(time);
+                    exactData.push(thetaExact);
+                    approxData.push(thetaApprox);
+        
+                    // タイマーの表示更新
+                    document.getElementById('timer').textContent = `Time: ${time.toFixed(2)} s`;
+        
+                    time += dt;
+        
+                    animationFrame = requestAnimationFrame(simulate);
+                }
+        
+                function drawPendulum(x, y, color, dashed) {
+                    ctx.beginPath();
+                    ctx.moveTo(canvas.width / 2, canvas.height / 2);
+                    if (dashed) {
+                        ctx.setLineDash([5, 5]);
+                    } else {
+                        ctx.setLineDash([]);
+                    }
+                    ctx.lineTo(canvas.width / 2 + x, canvas.height / 2 + y);
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+        
+                    ctx.setLineDash([]);
+                    ctx.beginPath();
+                    ctx.arc(canvas.width / 2 + x, canvas.height / 2 + y, 5, 0, 2 * Math.PI);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                }
+        
+                function drawCircles() {
+                    // 基準長さ10mの実線の円
+                    const baseRadius = R * (baseLength / length); // 基準円の半径（ピクセル）
+                    ctx.beginPath();
+                    ctx.arc(canvas.width / 2, canvas.height / 2, baseRadius, 0, 2 * Math.PI);
+                    ctx.strokeStyle = 'black';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([]);
+                    ctx.stroke();
+        
+                    // 任意調整された長さに対応する破線の円
+                    ctx.beginPath();
+                    ctx.arc(canvas.width / 2, canvas.height / 2, R, 0, 2 * Math.PI);
+                    ctx.strokeStyle = 'gray';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([5, 5]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+        
+                function startSimulation() {
+                    if (running) return;
+                    running = true;
+                    time = 0;
+                    timeData = [];
+                    exactData = [];
+                    approxData = [];
+                    initialPhi = parseFloat(document.getElementById('angleInput').value);
+                    initialPhidot = parseFloat(document.getElementById('velocityInput').value);
+                    length = parseFloat(document.getElementById('lengthInput').value);
+                    R = 300 * (length / baseLength); // 表示用の長さを拡大
+                    thetaExact = initialPhi;
+                    omegaExact = initialPhidot;
+                    thetaApprox = initialPhi;
+                    omegaApprox = initialPhidot;
+                    simulate();
+                }
+        
+                function stopSimulation() {
+                    running = false;
+                    cancelAnimationFrame(animationFrame);
+                    plotGraph();
+                }
+        
+                function plotGraph() {
+                    plotCtx.clearRect(0, 0, plotCanvas.width, plotCanvas.height);
+        
+                    // 軸の描画
+                    plotCtx.beginPath();
+                    plotCtx.moveTo(50, 350);
+                    plotCtx.lineTo(550, 350); // X軸の長さを元の600pxに調整
+                    plotCtx.lineTo(550, 50);
+                    plotCtx.strokeStyle = 'black';
+                    plotCtx.stroke();
+        
+                    // ラベル
+                    plotCtx.fillStyle = 'black';
+                    plotCtx.font = '14px Arial';
+                    plotCtx.fillText('Time (s)', 300, 380); // ラベルの位置も調整
+                    plotCtx.save();
+                    plotCtx.translate(20, 250);
+                    plotCtx.rotate(-Math.PI / 2);
+                    plotCtx.fillText('Angle (degrees)', 0, 0);
+                    plotCtx.restore();
+        
+                    // データのスケーリング
+                    const maxTime = Math.max(...timeData);
+                    const maxAngle = Math.max(Math.max(...exactData), Math.max(...approxData));
+                    const minAngle = Math.min(Math.min(...exactData), Math.min(...approxData));
+        
+                    // y軸のメモリを追加
+                    const angleStep = 30;
+                    for (let angle = minAngle; angle <= maxAngle; angle += angleStep) {
+                        const y = 350 - ((angle - minAngle) / (maxAngle - minAngle)) * 300;
+                        plotCtx.fillText(angle.toFixed(0), 30, y);
+                        plotCtx.beginPath();
+                        plotCtx.moveTo(50, y);
+                        plotCtx.lineTo(550, y);
+                        plotCtx.strokeStyle = '#ccc';
+                        plotCtx.stroke();
+                    }
+        
+                    // 厳密解のグラフ（赤）
+                    plotCtx.beginPath();
+                    for (let i = 0; i < timeData.length; i++) {
+                        const x = 50 + (timeData[i] / maxTime) * 500;
+                        const y = 350 - ((exactData[i] - minAngle) / (maxAngle - minAngle)) * 300;
+                        if (i === 0) {
+                            plotCtx.moveTo(x, y);
+                        } else {
+                            plotCtx.lineTo(x, y);
+                        }
+                    }
+                    plotCtx.strokeStyle = 'red';
+                    plotCtx.stroke();
+        
+                    // 近似解のグラフ（青）
+                    plotCtx.beginPath();
+                    for (let i = 0; i < timeData.length; i++) {
+                        const x = 50 + (timeData[i] / maxTime) * 500;
+                        const y = 350 - ((approxData[i] - minAngle) / (maxAngle - minAngle)) * 300;
+                        if (i === 0) {
+                            plotCtx.moveTo(x, y);
+                        } else {
+                            plotCtx.lineTo(x, y);
+                        }
+                    }
+                    plotCtx.strokeStyle = 'blue';
+                    plotCtx.stroke();
+                }
+            </script>
+        </section>
+
+               <!-- 物理学セクション -->
+               <section class="bg-white">
+                <h2 class="headingS">物理学</h2>
+                <h3 class="subheading">角運動量保存則シミュレーション</h3>
+    
+                <!-- 角運動量保存則シミュレーション -->
+                <div class="container">
+                    <div class="circle" id="circle">
+                        <div class="initial-circle"></div> <!-- 初期位置の実線円 -->
+                        <div class="dot rotating" id="dot"></div> <!-- 回転する赤点 -->
+                        <div class="center"></div> <!-- 中心点 O -->
+                    </div>
+                </div>
+    
+                <div class="info">
+                    <div>半径1mで角速度2πrad/s</div>
+                    <div><span id="radiusText">半径: 1m</span> | <span id="aText">a: 0m</span> | <span id="angularVelocityText">角速度: 6.28rad/s</span></div>
+                    <div>v = r / (r - a) * v₀</div>
+                    <div id="resultText">v = 6.28 m/s</div>
+                </div>
+    
+                <label for="radius">破線の半径を変更する:</label>
+                <input type="range" id="radius" min="0.5" max="3" step="0.1" value="1">
+            </section>
+        </main>
+    
+        <script>
+            const circle = document.getElementById('circle');
+            const dot = document.getElementById('dot');
+            const radiusInput = document.getElementById('radius');
+            const radiusText = document.getElementById('radiusText');
+            const aText = document.getElementById('aText');
+            const angularVelocityText = document.getElementById('angularVelocityText');
+            const resultText = document.getElementById('resultText');
+    
+            const initialRadius = 1; // 初期半径1m
+            const initialAngularVelocity = 2 * Math.PI; // 初期角速度 (1秒で1周)
+            const v0 = initialAngularVelocity; // 初期速度
+    
+            function updateCircle() {
+                const radius = parseFloat(radiusInput.value);
+                const diameter = radius * 200; // 半径を200px/mにスケール
+                const a = initialRadius - radius; // a = 実線半径 - 破線半径
+                const velocity = (radius / (radius - a)) * v0; // v = r / (r - a) * v₀
+                const angularVelocity = velocity / radius; // 角速度 ω = v / r
+    
+                circle.style.width = `${diameter}px`;
+                circle.style.height = `${diameter}px`;
+    
+                // 赤点の回転軌道の調整
+                dot.style.transformOrigin = `50% calc(50% + ${diameter / 2}px)`;
+                dot.style.animationDuration = `${2 * Math.PI / angularVelocity}s`;
+    
+                radiusText.textContent = `半径: ${radius.toFixed(2)}m`;
+                aText.textContent = `a: ${a.toFixed(2)}m`;
+                angularVelocityText.textContent = `角速度: ${angularVelocity.toFixed(2)}rad/s`;
+                resultText.textContent = `v = ${velocity.toFixed(2)} m/s`;
+            }
+    
+            radiusInput.addEventListener('input', updateCircle);
+    
+            // 初期設定
+            updateCircle();
+        </script>
+    
+    </body>
+    
+    </html>

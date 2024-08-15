@@ -1,0 +1,9 @@
+aroma-blog/
+├── index.html           # トップページ
+├── simulator-mechanics.html           # "シミュレーション"ページ
+├── novelpage.html         # "準備中"ページ
+└── solutions/           # "solutions"というフォルダを作成
+    ├── David J. Griffiths.html  # David J. Griffithのページ
+    └── Jhon R. taylor.html   # Jhon R. Taylorのページ
+
+
